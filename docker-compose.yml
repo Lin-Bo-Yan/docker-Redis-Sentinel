@@ -1,0 +1,64 @@
+version: '3.8'
+services:
+  nginx:
+    image: nginx:1.23.1
+    container_name: nginx
+    ports:
+      - "8888:80"
+    volumes:
+      - ./docker-volume/nginx/:/etc/nginx/conf.d/
+      - ./docker-volume/log/nginx/:/var/log/nginx/
+    networks:
+      redis_default:
+  php:
+    build: ./docker-volume/php
+    container_name: php
+    expose:
+      - 9000
+    volumes:
+      - ./docker-volume/php/:/var/www/html
+    networks:
+      redis_default:
+
+  redis-master:
+    image: redis
+    container_name: redis-master
+    volumes:
+      - ./docker-volume/redis-master/:/data
+      - ./sentinel/etc/redis.conf:/etc/redis.conf
+    ports:
+      - 6379:6379
+    command: redis-server /etc/redis.conf --appendonly yes
+    networks:
+      redis_default:
+    
+  redis-slave1:
+    image: redis
+    container_name: redis-slave1
+    volumes:
+      - ./docker-volume/redis-slave1/:/data
+    ports:
+      - 6380:6379
+    command: redis-server --slaveof redis-master 6379  --appendonly yes
+    depends_on:
+      - redis-master
+    networks:
+      redis_default:
+
+  redis-slave2:
+    image: redis
+    container_name: redis-slave2
+    volumes:
+      - ./docker-volume/redis-slave2/:/data
+    ports:
+      - 6381:6379
+    command: redis-server --slaveof redis-master 6379  --appendonly yes
+    depends_on:
+      - redis-master
+      - redis-slave1
+    networks:
+      redis_default:
+networks:
+  redis_default:
+    driver: bridge
+    name: redis_default
